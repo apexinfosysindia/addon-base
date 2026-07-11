@@ -1,0 +1,41 @@
+# =============================================================================
+# ApexOS skeleton provenance — written by `python -m apexos_harness package`.
+#
+# PIPELINE-OWNED SURFACES: `.apexos/**` and `.github/workflows/apexos-*.yml`
+# belong to the build-pipeline and are PRESERVED across upstream adoptions —
+# never hand-edit them in the product repo; regenerate via the harness.
+# Everything else in this repo is pipeline output from the upstream ref
+# recorded below (transform + patch queue, gate-clean at packaging time).
+# =============================================================================
+schema_version: 1
+repo: addon-base
+upstream:
+  url: https://github.com/hassio-addons/addon-base
+  ref: v15.0.4
+  sha: 963999141526f932d7ac06450eb804de7152d185
+apexos:
+  version: 0.1.3-dev
+  channel: dev
+packaged: '2026-07-11'
+build_pipeline:
+  org: apexinfosysindia
+  commit: 7cf41b8c9e721d7eebdc0ce970ef90817cfe999b
+engine: python
+src_subdir: .
+patches:
+  - name: 001-banner-debrand.patch
+    status: clean
+    lines: 12
+  - name: 002-community-meta-debrand.patch
+    status: clean
+    lines: 0
+  - name: 003-fork-version-pins.patch
+    status: clean
+    lines: 22
+  - name: 004-unpin-apk-packages.patch
+    status: clean
+    lines: 20
+gate:
+  violations: 0
+  allowed: 0
+  excluded_vendored: 0

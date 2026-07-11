@@ -1,0 +1,238 @@
+# =============================================================================
+# ApexOS base-image build — addon-base (build-pipeline owned).
+#
+# Installed in the product repo as .github/workflows/apexos-build.yml.
+# PIPELINE-OWNED SURFACE (`.github/workflows/apexos-*.yml`): never hand-edit
+# there — source of truth is build-pipeline tools/harness/ci/build/addon-base.yml.
+#
+# The add-on store's base image (task #53): apexinfosysindia/addons root
+# build.yaml pins ghcr.io/apexinfosysindia/addon-base:15.0.4 — this workflow
+# publishes that tag. amd64 (ubuntu-latest) + aarch64 (ubuntu-24.04-arm)
+# only, matching the docker-base fleet (no armhf/armv7/i386 runners; the
+# store keeps all five build_from keys for shape, but only these two arches
+# exist — PR #1 caveat). Production Dockerfile UNMODIFIED (plain curl+tar,
+# no ADD --unpack — the docker driver suffices, unlike docker-base's
+# container-builder variants). Every built image is denylist-gated
+# (tools/gate via BUILD_PIPELINE_TOKEN checkout) with violations==0 AND
+# skipped==0 asserted BEFORE any push. `image-gate` aggregates the matrix as
+# the required status check.
+#
+# Push (main only):
+#   ghcr.io/apexinfosysindia/addon-base:<ver> + :latest (GITHUB_TOKEN,
+#     packages:write) — the store's pinned build_from resolves from here;
+#   registry.apexinfosys.in/apexos/addon-base mirror — continue-on-error
+#     while the box's token-server split is pending (blocked-on-box must
+#     not redden the gate).
+# Per-arch tags <ver>-{amd64,aarch64} are pushed by the build legs; the
+# merge job stitches them into the <ver> + latest multi-arch manifests.
+# <ver> = .apexos/provenance.yaml upstream.ref with the leading v dropped
+# (v15.0.4 -> 15.0.4, the image-tag spelling the store pins).
+# =============================================================================
+name: apexos-build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: apexos-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GHCR_NS: ghcr.io/apexinfosysindia
+  REGISTRY: registry.apexinfosys.in
+  REGISTRY_NS: registry.apexinfosys.in/apexos
+  IMAGE: addon-base
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: base (${{ matrix.arch.name }})
+    # dependabot's actor can't read org secrets (BUILD_PIPELINE_TOKEN,
+    # REGISTRY_*) — skip instead of failing red; image-gate skips in
+    # lockstep, and a skipped required check passes branch protection.
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ${{ matrix.arch.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          # build_from spellings = base/build.yaml (upstream alpine 3.19.0
+          # arch images; armhf/armv7/i386 skipped — no runners, and the
+          # fleet ships amd64+aarch64 only, docker-base precedent)
+          - name: amd64
+            runner: ubuntu-latest
+            build_from: amd64/alpine:3.19.0
+          - name: aarch64
+            runner: ubuntu-24.04-arm
+            build_from: arm64v8/alpine:3.19.0
+    env:
+      ARCH: ${{ matrix.arch.name }}
+    steps:
+      - name: checkout addon-base
+        uses: actions/checkout@v4
+        with:
+          path: src
+          persist-credentials: false
+
+      - name: checkout build-pipeline (gate tool + master map)
+        uses: actions/checkout@v4
+        with:
+          repository: apexinfosysindia/build-pipeline
+          ref: main
+          path: .build-pipeline
+          token: ${{ secrets.BUILD_PIPELINE_TOKEN }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install gate deps
+        run: pip install pyyaml
+
+      - name: read version (.apexos/provenance.yaml upstream.ref, v-stripped)
+        id: version
+        run: |
+          v=$(python -c "import yaml; print(yaml.safe_load(open('src/.apexos/provenance.yaml'))['upstream']['ref'].lstrip('v'))")
+          test -n "$v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: build addon-base:${{ steps.version.outputs.version }} (production Dockerfile, unmodified)
+        env:
+          BUILD_FROM: ${{ matrix.arch.build_from }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          docker buildx build --load src/base \
+            --build-arg "BUILD_FROM=$BUILD_FROM" \
+            --build-arg "BUILD_ARCH=$ARCH" \
+            --build-arg "BUILD_VERSION=$VERSION" \
+            --build-arg "BUILD_REF=$GITHUB_SHA" \
+            --build-arg "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --build-arg "BUILD_REPOSITORY=$GITHUB_REPOSITORY" \
+            -t "$IMAGE:ci"
+
+      - name: gate built image (denylist, violations==0 && skipped==0)
+        working-directory: .build-pipeline/tools/gate
+        run: |
+          docker save "$IMAGE:ci" -o "$RUNNER_TEMP/image.tar"
+          rc=0
+          python -m apexos_gate --map ../../transform/rename-map.yaml --json "$RUNNER_TEMP/image.tar" \
+            > "$RUNNER_TEMP/gate.json" || rc=$?
+          python - "$RUNNER_TEMP/gate.json" "$rc" <<'PY'
+          import json, sys
+
+          gr = json.load(open(sys.argv[1]))
+          rc = int(sys.argv[2])
+          st = gr["stats"]
+          print(f"gate: exit={rc} violations={st['violations']} "
+                f"allowed={st['allowed']} skipped={st['skipped']} errors={st['errors']}")
+          for v in gr["violations"][:25]:
+              print(f"  VIOLATION {v.get('term')!r}: {v.get('path')}")
+          for s in gr["skipped"][:25]:
+              print(f"  SKIPPED {s.get('path')}: {s.get('reason')}")
+          # REQUIRED: clean gate AND zero skips (a skipped file is an unscanned file)
+          sys.exit(1 if rc != 0 or st["violations"] or st["skipped"] or st["errors"] else 0)
+          PY
+
+      - name: push per-arch image to ghcr (main only)
+        if: github.event_name != 'pull_request'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          ref="$GHCR_NS/$IMAGE:$VERSION-$ARCH"
+          docker tag "$IMAGE:ci" "$ref"
+          docker push "$ref"
+
+      - name: push per-arch image to registry mirror (blocked-on-box tolerated)
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          if [ -z "$REGISTRY_PASSWORD" ]; then
+            echo "::warning::REGISTRY_PASSWORD not set — skipping registry push"
+            exit 1
+          fi
+          echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+          ref="$REGISTRY_NS/$IMAGE:$VERSION-$ARCH"
+          docker tag "$IMAGE:ci" "$ref"
+          docker push "$ref"
+
+  image-gate:
+    name: image-gate
+    needs: build
+    # always() so a FAILED build still turns the gate red; the dependabot
+    # term skips the required check in lockstep with build (skipped counts
+    # as passing). Job name is the required-status-check — never rename.
+    if: always() && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: assert every arch built and passed the denylist gate
+        env:
+          RESULT: ${{ needs.build.result }}
+        run: |
+          echo "build matrix result: $RESULT"
+          test "$RESULT" = "success"
+
+  merge:
+    name: publish multi-arch manifests
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: checkout addon-base (provenance only)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: read version
+        id: version
+        run: |
+          v=$(python3 -c "import yaml; print(yaml.safe_load(open('.apexos/provenance.yaml'))['upstream']['ref'].lstrip('v'))")
+          test -n "$v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: create ghcr multi-arch manifests (<ver> + latest)
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create \
+            -t "$GHCR_NS/addon-base:$VERSION" \
+            -t "$GHCR_NS/addon-base:latest" \
+            "$GHCR_NS/addon-base:$VERSION-amd64" \
+            "$GHCR_NS/addon-base:$VERSION-aarch64"
+
+      - name: create registry mirror manifest (blocked-on-box tolerated)
+        continue-on-error: true
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          if [ -z "$REGISTRY_PASSWORD" ]; then
+            echo "::warning::REGISTRY_PASSWORD not set — skipping registry manifest"
+            exit 1
+          fi
+          echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+          docker buildx imagetools create \
+            -t "$REGISTRY_NS/addon-base:$VERSION" \
+            "$REGISTRY_NS/addon-base:$VERSION-amd64" \
+            "$REGISTRY_NS/addon-base:$VERSION-aarch64"

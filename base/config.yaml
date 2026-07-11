@@ -1,0 +1,12 @@
+---
+name: Base Image
+version: dev
+slug: base
+description: Docker base images used by ApexOS add-ons.
+url: https://github.com/apexinfosysindia/addon-base
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
