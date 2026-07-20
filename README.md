@@ -32,10 +32,6 @@ upstream add-on base-image tree. Upstream ref, SHA and packaging details
 are recorded in `.apexos/provenance.yaml` — never hand-edit pipeline-owned
 surfaces (`.apexos/**`, `.github/workflows/apexos-*.yml`).
 
-## License
-
-MIT — see [LICENSE.md](LICENSE.md). Upstream copyright is retained.
-
 [bashio]: https://github.com/apexinfosysindia/bashio
 [s6]: https://github.com/just-containers/s6-overlay
 [tempio]: https://github.com/apexinfosysindia/tempio
