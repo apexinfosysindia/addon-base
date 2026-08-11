@@ -93,6 +93,12 @@ jobs:
           key_file=$(mktemp)
           chmod 600 "$key_file"
           echo "$BUILD_PIPELINE_KEY_B64" | base64 -d | base64 -d > "$key_file"
+          # Idempotent: build workflows check the product repo out into `path: src`,
+          # so the workspace ROOT is not a git repo and checkout's `git clean` never
+          # sweeps this nested clone. Self-hosted workspaces persist between jobs, so
+          # a second matrix leg on the same runner hit "destination path already
+          # exists" (exit 128). Clear it before cloning.
+          rm -rf .build-pipeline
           GIT_SSH_COMMAND="ssh -i $key_file -o StrictHostKeyChecking=accept-new" \
             git clone --depth=1 git@github.com:apexinfosysindia/build-pipeline.git .build-pipeline
           rm -f "$key_file"
