@@ -93,6 +93,10 @@ jobs:
           persist-credentials: false
 
       - uses: actions/setup-python@v5
+        env:
+          # self-hosted macOS runner (apexos-mac-builder) runs as 'advait', not 'runner';
+          # setup-python defaults to /Users/runner/hostedtoolcache which doesn't exist.
+          RUNNER_TOOL_CACHE: ${{ env.RUNNER_TOOL_CACHE || format('{0}/hostedtoolcache', env.HOME) }}
         with:
           python-version: "3.12"
 
