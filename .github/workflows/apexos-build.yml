@@ -7,7 +7,7 @@
 #
 # The add-on store's base image (task #53): apexinfosysindia/addons root
 # build.yaml pins ghcr.io/apexinfosysindia/addon-base:15.0.4 — this workflow
-# publishes that tag. amd64 (self-hosted) + aarch64 (self-hosted (ARM64))
+# publishes that tag. amd64 + aarch64 (self-hosted apexos-builder, arch-routed by label)
 # only, matching the docker-base fleet (no armhf/armv7/i386 runners; the
 # store keeps all five build_from keys for shape, but only these two arches
 # exist — PR #1 caveat). Production Dockerfile UNMODIFIED (plain curl+tar,
@@ -84,13 +84,32 @@ jobs:
           persist-credentials: false
 
       - name: checkout build-pipeline (gate tool + master map)
-        uses: actions/checkout@v4
-        with:
-          repository: apexinfosysindia/build-pipeline
-          ref: main
-          path: .build-pipeline
-          token: ${{ secrets.BUILD_PIPELINE_TOKEN }}
-          persist-credentials: false
+        # BUILD_PIPELINE_TOKEN is an ed25519 SSH deploy key (READ-ONLY on
+        # build-pipeline), NOT a PAT — actions/checkout `token:` cannot consume
+        # it. Stored double-base64 so the secret survives newline mangling.
+        env:
+          BUILD_PIPELINE_KEY_B64: ${{ secrets.BUILD_PIPELINE_TOKEN }}
+        run: |
+          key_file=$(mktemp)
+          chmod 600 "$key_file"
+          echo "$BUILD_PIPELINE_KEY_B64" | base64 -d | base64 -d > "$key_file"
+          GIT_SSH_COMMAND="ssh -i $key_file -o StrictHostKeyChecking=accept-new" \
+            git clone --depth=1 git@github.com:apexinfosysindia/build-pipeline.git .build-pipeline
+          rm -f "$key_file"
+
+      # self-hosted runners: RUNNER_TOOL_CACHE is unset on our builders, and
+      # setup-python then falls back to the nonexistent
+      # /Users/runner/hostedtoolcache (the macOS builder runs as 'advait', and
+      # there is no 'runner' user). $HOME is only real inside a shell -- the
+      # `env` context has no HOME entry, so this CANNOT be an `env:` value:
+      # format('{0}/hostedtoolcache', env.HOME) silently yields
+      # /hostedtoolcache, an unwritable root path, and the tool install fails.
+      - name: ensure python tool cache path (self-hosted runners)
+        run: |
+          cache="$RUNNER_TOOL_CACHE"
+          if [ -z "$cache" ]; then cache="$HOME/hostedtoolcache"; fi
+          mkdir -p "$cache"
+          echo "RUNNER_TOOL_CACHE=$cache" >> "$GITHUB_ENV"
 
       - uses: actions/setup-python@v5
         with:
