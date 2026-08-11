@@ -7,7 +7,7 @@
 #
 # The add-on store's base image (task #53): apexinfosysindia/addons root
 # build.yaml pins ghcr.io/apexinfosysindia/addon-base:15.0.4 — this workflow
-# publishes that tag. amd64 (ubuntu-latest) + aarch64 (ubuntu-24.04-arm)
+# publishes that tag. amd64 (self-hosted) + aarch64 (self-hosted (ARM64))
 # only, matching the docker-base fleet (no armhf/armv7/i386 runners; the
 # store keeps all five build_from keys for shape, but only these two arches
 # exist — PR #1 caveat). Production Dockerfile UNMODIFIED (plain curl+tar,
@@ -69,10 +69,10 @@ jobs:
           # arch images; armhf/armv7/i386 skipped — no runners, and the
           # fleet ships amd64+aarch64 only, docker-base precedent)
           - name: amd64
-            runner: ubuntu-latest
+            runner: [self-hosted, apexos-builder, linux, X64]
             build_from: amd64/alpine:3.19.0
           - name: aarch64
-            runner: ubuntu-24.04-arm
+            runner: [self-hosted, apexos-builder, ARM64]
             build_from: arm64v8/alpine:3.19.0
     env:
       ARCH: ${{ matrix.arch.name }}
@@ -179,7 +179,7 @@ jobs:
     # term skips the required check in lockstep with build (skipped counts
     # as passing). Job name is the required-status-check — never rename.
     if: always() && github.actor != 'dependabot[bot]'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, apexos-builder]
     steps:
       - name: assert every arch built and passed the denylist gate
         env:
@@ -192,7 +192,7 @@ jobs:
     name: publish multi-arch manifests
     needs: build
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, apexos-builder]
     permissions:
       contents: read
       packages: write
