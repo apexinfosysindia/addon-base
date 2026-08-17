@@ -89,6 +89,12 @@ jobs:
       # common case: dangling images first (nothing references them), then the
       # BuildKit cache down to a budget. `df -Pk` because the ARM64 builder is
       # macOS, where df has neither -BG nor --output.
+      #
+      # This bounds what CI itself leaves behind; it cannot bound what else
+      # lives on a shared box. The 2026-08-12 fill was mostly a 199 GB manual
+      # buildroot tree in the runner account's home, and Docker held only 64 GB
+      # of the 290 GB volume. If this step reports single-digit free space even
+      # after pruning, the culprit is outside CI -- go look at the whole disk.
       - name: reclaim disk when the shared builder is low
         run: |
           free_gb=$(df -Pk . | awk 'NR==2 {print int($4 / 1048576)}')
@@ -96,8 +102,28 @@ jobs:
           docker system df || true
           if [ "$free_gb" -lt 20 ]; then
             docker image prune -f || true
-            docker buildx prune -f --keep-storage=10GB \
-              || docker builder prune -f --keep-storage=10GB || true
+            # Prune every buildx builder this pipeline owns, not just the
+            # selected one: we keep TWO (apexos-ci and apexos-cross), and a
+            # bare `buildx prune` only touches whichever is current, so the
+            # other's cache grows forever. Names come from column 1 of
+            # `buildx ls`, minus the header and the indented node rows, with
+            # the current-builder `*` stripped; the apexos- filter keeps us off
+            # any builder the Mac's owner created. (--keep-storage is renamed
+            # --max-storage on buildx >= 0.31 but still honoured there, so it
+            # stays for the older CLI.)
+            builders=$(docker buildx ls 2>/dev/null | tail -n +2 \
+              | grep -v '^[[:space:]]' \
+              | awk 'NF {gsub(/\*$/, "", $1); print $1}' \
+              | grep '^apexos-' || true)
+            if [ -n "$builders" ]; then
+              for b in $builders; do
+                echo "pruning buildx cache: $b"
+                docker buildx prune -f --builder "$b" --keep-storage=10GB || true
+              done
+            else
+              docker buildx prune -f --keep-storage=10GB \
+                || docker builder prune -f --keep-storage=10GB || true
+            fi
             # Tagged build products pile up too (every leg tags <image>:ci and
             # the per-arch refs it pushes), and dangling-only pruning never
             # touches them. Sweep the unused ones older than a week -- on the
@@ -111,7 +137,7 @@ jobs:
           fi
 
       - name: checkout addon-base
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           path: src
           persist-credentials: false
@@ -126,14 +152,55 @@ jobs:
           key_file=$(mktemp)
           chmod 600 "$key_file"
           echo "$BUILD_PIPELINE_KEY_B64" | base64 -d | base64 -d > "$key_file"
-          # Idempotent: build workflows check the product repo out into `path: src`,
-          # so the workspace ROOT is not a git repo and checkout's `git clean` never
-          # sweeps this nested clone. Self-hosted workspaces persist between jobs, so
-          # a second matrix leg on the same runner hit "destination path already
-          # exists" (exit 128). Clear it before cloning.
-          rm -rf .build-pipeline
-          GIT_SSH_COMMAND="ssh -i $key_file -o StrictHostKeyChecking=accept-new" \
-            git clone --depth=1 git@github.com:apexinfosysindia/build-pipeline.git .build-pipeline
+          export GIT_SSH_COMMAND="ssh -i $key_file -o StrictHostKeyChecking=accept-new"
+          url=git@github.com:apexinfosysindia/build-pipeline.git
+
+          # Reuse the warm clone instead of `rm -rf` + fresh clone every leg.
+          # build-pipeline is ~28 MB (a 20 MB wheel and a 7.6 MB translations
+          # tarball sit in HEAD), and this fleet's GitHub pack throughput is not
+          # dependable: on 2026-08-15 the macOS builder measured ~20 KB/s to
+          # GitHub -- over SSH *and* over HTTPS to codeload, so it is not a
+          # protocol problem -- while pulling 10 MB/s from the OTA host on the
+          # same link. A fresh clone ran 22.5 minutes and died with "fetch-pack:
+          # unexpected disconnect while reading sideband packet / fatal: early
+          # EOF", failing the aarch64 leg of the 2026.08.0 supervisor release
+          # build. A clone cannot resume, so every retry paid the full 28 MB
+          # again.
+          #
+          # Build workflows check the product repo out into `path: src`, so the
+          # workspace ROOT is not a git repo and checkout's `git clean` never
+          # sweeps this nested clone -- it survives between jobs, and an
+          # incremental depth-1 fetch moves only the delta (text-only in
+          # practice: the wheel and the tarball almost never change). `git clean
+          # -ffdx` covers what the old `rm -rf` existed for: a second matrix leg
+          # on the same runner tripping over "destination path already exists"
+          # (exit 128).
+          fetch_bp() {
+            if [ -d .build-pipeline/.git ]; then
+              git -C .build-pipeline remote set-url origin "$url" &&
+              git -C .build-pipeline fetch --depth=1 origin main &&
+              git -C .build-pipeline checkout -f FETCH_HEAD &&
+              git -C .build-pipeline clean -ffdx
+            else
+              git clone --depth=1 "$url" .build-pipeline
+            fi
+          }
+
+          # Retry with backoff: a dropped transfer is not a permissions or a ref
+          # error, and a release build should not die on one bad connection. The
+          # rm -rf before a retry is what makes attempt 2 sound -- a
+          # half-transferred clone leaves a .git the reuse branch would trust.
+          for attempt in 1 2 3; do
+            if fetch_bp; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::could not obtain build-pipeline after 3 attempts"
+              rm -f "$key_file"
+              exit 1
+            fi
+            echo "attempt $attempt failed -- retrying in $((attempt * 30))s"
+            rm -rf .build-pipeline
+            sleep $((attempt * 30))
+          done
           rm -f "$key_file"
 
       # NO actions/setup-python. On the self-hosted macOS builder its fallback
@@ -259,7 +326,13 @@ jobs:
     # term skips the required check in lockstep with build (skipped counts
     # as passing). Job name is the required-status-check — never rename.
     if: always() && github.actor != 'dependabot[bot]'
-    runs-on: [self-hosted, apexos-builder]
+    # Linux builder ONLY: the bare [self-hosted, apexos-builder] label set also
+    # matches the ARM64 builder, which is macOS and the fleet's ONLY aarch64
+    # capacity — the same runner this workflow's own aarch64 build leg (and the
+    # OS image build) has to queue for. Nothing here needs a machine at all
+    # (one `test` on a matrix result), so it must not be the job that squats
+    # that slot; unpinned, which of the two it landed on was a coin flip.
+    runs-on: [self-hosted, apexos-builder, linux, X64]
     steps:
       - name: assert every arch built and passed the denylist gate
         env:
@@ -272,13 +345,18 @@ jobs:
     name: publish multi-arch manifests
     needs: build
     if: github.event_name != 'pull_request'
-    runs-on: [self-hosted, apexos-builder]
+    # Linux builder ONLY. This job is NOT pure shell: it runs `docker buildx
+    # imagetools create` and `python3 -c "import yaml"`. The bare
+    # [self-hosted, apexos-builder] label set also matches the ARM64 builder,
+    # which is a macOS workstation with no provisioned PyYAML -- so which
+    # runner picked the job decided whether the manifest got published.
+    runs-on: [self-hosted, apexos-builder, linux, X64]
     permissions:
       contents: read
       packages: write
     steps:
       - name: checkout addon-base (provenance only)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
