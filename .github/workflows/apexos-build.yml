@@ -259,7 +259,7 @@ jobs:
     # term skips the required check in lockstep with build (skipped counts
     # as passing). Job name is the required-status-check — never rename.
     if: always() && github.actor != 'dependabot[bot]'
-    runs-on: [self-hosted, apexos-builder]
+    runs-on: [self-hosted, apexos-builder, linux, X64]
     steps:
       - name: assert every arch built and passed the denylist gate
         env:
@@ -272,7 +272,7 @@ jobs:
     name: publish multi-arch manifests
     needs: build
     if: github.event_name != 'pull_request'
-    runs-on: [self-hosted, apexos-builder]
+    runs-on: [self-hosted, apexos-builder, linux, X64]
     permissions:
       contents: read
       packages: write
