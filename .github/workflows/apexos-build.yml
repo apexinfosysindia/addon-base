@@ -319,6 +319,24 @@ jobs:
           docker tag "$IMAGE:ci" "$ref"
           docker push "$ref"
 
+      # Every `docker login` in this job writes its credential into
+      # ~/.docker/config.json, and these runners' home directories are SHARED
+      # and outlive the job, so nothing removes it. The aarch64 builder was
+      # found holding a ghs_ job token from some earlier run this way: while
+      # that token is valid it is a live credential on disk for whatever runs
+      # next, and afterwards it is a dead entry that docker keeps offering, so
+      # a registry failure no longer says which credential was even tried.
+      #
+      # always() so a failure earlier in the job does not skip the cleanup, and
+      # never fail the job on it: `docker logout` already exits 0 for a registry
+      # that was never logged into, so a nonzero here would only mask the real
+      # result.
+      - name: drop the registry credentials from the shared runner home
+        if: always()
+        run: |
+          docker logout ghcr.io || true
+          docker logout "$REGISTRY" || true
+
   image-gate:
     name: image-gate
     needs: build
@@ -395,3 +413,21 @@ jobs:
             -t "$REGISTRY_NS/addon-base:$VERSION" \
             "$REGISTRY_NS/addon-base:$VERSION-amd64" \
             "$REGISTRY_NS/addon-base:$VERSION-aarch64"
+
+      # Every `docker login` in this job writes its credential into
+      # ~/.docker/config.json, and these runners' home directories are SHARED
+      # and outlive the job, so nothing removes it. The aarch64 builder was
+      # found holding a ghs_ job token from some earlier run this way: while
+      # that token is valid it is a live credential on disk for whatever runs
+      # next, and afterwards it is a dead entry that docker keeps offering, so
+      # a registry failure no longer says which credential was even tried.
+      #
+      # always() so a failure earlier in the job does not skip the cleanup, and
+      # never fail the job on it: `docker logout` already exits 0 for a registry
+      # that was never logged into, so a nonzero here would only mask the real
+      # result.
+      - name: drop the registry credentials from the shared runner home
+        if: always()
+        run: |
+          docker logout ghcr.io || true
+          docker logout "$REGISTRY" || true
