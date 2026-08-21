@@ -69,10 +69,10 @@ jobs:
           # arch images; armhf/armv7/i386 skipped — no runners, and the
           # fleet ships amd64+aarch64 only, docker-base precedent)
           - name: amd64
-            runner: [self-hosted, apexos-builder, linux, X64]
+            runner: ${{ fromJSON(vars.APEXOS_RUNSON_AMD64 || '["self-hosted","apexos-builder","linux","X64"]') }}
             build_from: amd64/alpine:3.19.0
           - name: aarch64
-            runner: [self-hosted, apexos-builder, ARM64]
+            runner: ${{ fromJSON(vars.APEXOS_RUNSON_AARCH64 || '["self-hosted","apexos-builder","ARM64"]') }}
             build_from: arm64v8/alpine:3.19.0
     env:
       ARCH: ${{ matrix.arch.name }}
@@ -350,7 +350,7 @@ jobs:
     # OS image build) has to queue for. Nothing here needs a machine at all
     # (one `test` on a matrix result), so it must not be the job that squats
     # that slot; unpinned, which of the two it landed on was a coin flip.
-    runs-on: [self-hosted, apexos-builder, linux, X64]
+    runs-on: ${{ fromJSON(vars.APEXOS_RUNSON_AMD64 || '["self-hosted","apexos-builder","linux","X64"]') }}
     steps:
       - name: assert every arch built and passed the denylist gate
         env:
@@ -368,7 +368,7 @@ jobs:
     # [self-hosted, apexos-builder] label set also matches the ARM64 builder,
     # which is a macOS workstation with no provisioned PyYAML -- so which
     # runner picked the job decided whether the manifest got published.
-    runs-on: [self-hosted, apexos-builder, linux, X64]
+    runs-on: ${{ fromJSON(vars.APEXOS_RUNSON_AMD64 || '["self-hosted","apexos-builder","linux","X64"]') }}
     permissions:
       contents: read
       packages: write
