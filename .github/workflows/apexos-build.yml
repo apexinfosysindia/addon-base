@@ -96,11 +96,22 @@ jobs:
       # of the 290 GB volume. If this step reports single-digit free space even
       # after pruning, the culprit is outside CI -- go look at the whole disk.
       - name: reclaim disk when the shared builder is low
+        # Tightened 2026-08-24: this fleet's amd64 box is a 38 GB root volume
+        # (the "290 GB volume" in the history below is the PRE-rebuild
+        # 2026-08-12 box; the 2026-08-21 rebuild landed on a much smaller
+        # one) -- a single core build alone was observed burning ~12 GB of
+        # headroom in under two hours of same-day CI traffic, and twice
+        # caused "No space left on device" mid-build. The old
+        # --keep-storage=10GB / until=168h thresholds assumed a slow trickle
+        # of cruft; this fleet now runs core/supervisor/5 plugins back to
+        # back same-day and needs to reclaim aggressively, not just when
+        # critically low.
         run: |
           free_gb=$(df -Pk . | awk 'NR==2 {print int($4 / 1048576)}')
           echo "free before: $free_gb GiB"
           docker system df || true
-          if [ "$free_gb" -lt 20 ]; then
+          if [ "$free_gb" -lt 25 ]; then
+            docker container prune -f || true
             docker image prune -f || true
             # Prune every buildx builder this pipeline owns, not just the
             # selected one: we keep TWO (apexos-ci and apexos-cross), and a
@@ -118,20 +129,22 @@ jobs:
             if [ -n "$builders" ]; then
               for b in $builders; do
                 echo "pruning buildx cache: $b"
-                docker buildx prune -f --builder "$b" --keep-storage=10GB || true
+                docker buildx prune -f --builder "$b" --keep-storage=3GB || true
               done
             else
-              docker buildx prune -f --keep-storage=10GB \
-                || docker builder prune -f --keep-storage=10GB || true
+              docker buildx prune -f --keep-storage=3GB \
+                || docker builder prune -f --keep-storage=3GB || true
             fi
             # Tagged build products pile up too (every leg tags <image>:ci and
             # the per-arch refs it pushes), and dangling-only pruning never
-            # touches them. Sweep the unused ones older than a week -- on the
-            # LINUX builder only: the ARM64 builder is a workstation with its
-            # own images and stopped containers, and `prune -a` there would
-            # sweep things this pipeline does not own.
+            # touches them. Unconditional (no age filter -- same-day CI
+            # traffic across many repos is the actual accumulation now, not
+            # week-old cruft) -- on the LINUX builder only: the ARM64
+            # builder is a workstation with its own images and stopped
+            # containers, and `prune -a` there would sweep things this
+            # pipeline does not own.
             if [ "$(uname)" = "Linux" ]; then
-              docker image prune -a -f --filter until=168h || true
+              docker image prune -a -f || true
             fi
             df -Ph .
           fi
