@@ -17,7 +17,7 @@ These are the base images used by ApexOS add-ons. They contain:
 Add-ons build `FROM` the published base image:
 
 ```text
-ghcr.io/apexinfosysindia/addon-base:15.0.4
+ghcr.io/apexinfosysindia/addon-base:19.0.0
 ```
 
 The add-on store's root `build.yaml` pins this image for every
@@ -31,6 +31,10 @@ This repository is pipeline output of the ApexOS build pipeline
 upstream add-on base-image tree. Upstream ref, SHA and packaging details
 are recorded in `.apexos/provenance.yaml` — never hand-edit pipeline-owned
 surfaces (`.apexos/**`, `.github/workflows/apexos-*.yml`).
+
+## License
+
+MIT — see [LICENSE.md](LICENSE.md). Upstream copyright is retained.
 
 [bashio]: https://github.com/apexinfosysindia/bashio
 [s6]: https://github.com/just-containers/s6-overlay

@@ -6,18 +6,20 @@
   "labels": ["dependencies", "no-stale"],
   "commitMessagePrefix": "⬆️",
   "commitMessageTopic": "{{depName}}",
-  "regexManagers": [
+  "customManagers": [
     {
-      "fileMatch": ["/Dockerfile$", "/build.yaml$"],
+      "customType": "regex",
+      "managerFilePatterns": ["//Dockerfile$/", "//build.yaml$/"],
       "matchStringsStrategy": "any",
       "matchStrings": [
         "ARG BUILD_FROM=(?<depName>.*?):(?<currentValue>.*?)\\s+",
-        "(aarch64|amd64|armhf|armv7|i386):\\s[\"']?(?<depName>.*?):(?<currentValue>.*?)[\"']?\\s"
+        "(aarch64|amd64):\\s[\"']?(?<depName>.*?):(?<currentValue>.*?)[\"']?\\s"
       ],
       "datasourceTemplate": "docker"
     },
     {
-      "fileMatch": ["/Dockerfile$"],
+      "customType": "regex",
+      "managerFilePatterns": ["//Dockerfile$/"],
       "matchStrings": [
         "ARG BASHIO_VERSION=[\"']?(?<currentValue>.+?)[\"']?\\s+"
       ],
@@ -26,7 +28,8 @@
       "versioningTemplate": "semver"
     },
     {
-      "fileMatch": ["/Dockerfile$"],
+      "customType": "regex",
+      "managerFilePatterns": ["//Dockerfile$/"],
       "matchStrings": [
         "ARG S6_OVERLAY_VERSION=[\"']?(?<currentValue>.+?)[\"']?\\s+"
       ],
@@ -36,7 +39,8 @@
       "extractVersionTemplate": "^v(?<version>.*)$"
     },
     {
-      "fileMatch": ["/Dockerfile$"],
+      "customType": "regex",
+      "managerFilePatterns": ["//Dockerfile$/"],
       "matchStrings": [
         "ARG TEMPIO_VERSION=[\"']?(?<currentValue>.+?)[\"']?\\s+"
       ],
@@ -45,14 +49,15 @@
       "versioningTemplate": "loose"
     },
     {
-      "fileMatch": ["/Dockerfile$"],
+      "customType": "regex",
+      "managerFilePatterns": ["//Dockerfile$/"],
       "matchStringsStrategy": "any",
       "matchStrings": [
         "\\s\\s(?<package>[a-z0-9-_]+)=(?<currentValue>[a-z0-9-_.]+)\\s+"
       ],
       "versioningTemplate": "loose",
       "datasourceTemplate": "repology",
-      "depNameTemplate": "alpine_3_19/{{package}}"
+      "depNameTemplate": "alpine_3_22/{{package}}"
     }
   ],
   "packageRules": [
@@ -69,8 +74,8 @@
     {
       "groupName": "OpenSSL",
       "matchDatasources": ["repology"],
-      "matchPackagePatterns": ["^alpine_.*/(libssl|libcrypto).*$"],
-      "automerge": true
+      "automerge": true,
+      "matchPackageNames": ["/^alpine_.*/(libssl|libcrypto).*$/"]
     },
     {
       "groupName": "Alpine base image",

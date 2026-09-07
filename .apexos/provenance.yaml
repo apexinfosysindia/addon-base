@@ -11,15 +11,15 @@ schema_version: 1
 repo: addon-base
 upstream:
   url: https://github.com/hassio-addons/addon-base
-  ref: v15.0.4
-  sha: 963999141526f932d7ac06450eb804de7152d185
+  ref: v19.0.0
+  sha: b4291d18567730d3f0d2e14f0c2369acfdc28029
 apexos:
-  version: 0.1.6-dev
+  version: 0.1.17-dev
   channel: dev
-packaged: '2026-07-12'
+packaged: '2026-09-08'
 build_pipeline:
   org: apexinfosysindia
-  commit: 616af0da9ba612cc49431d70f0c26b3356937cb0
+  commit: 5e954131cf5a807ed325c53ef5d9fbfd86f34cf7
 engine: python
 src_subdir: .
 patches:
@@ -31,7 +31,7 @@ patches:
     lines: 0
   - name: 003-fork-version-pins.patch
     status: clean
-    lines: 22
+    lines: 16
   - name: 004-unpin-apk-packages.patch
     status: clean
     lines: 20
