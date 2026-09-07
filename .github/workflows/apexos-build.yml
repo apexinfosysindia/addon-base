@@ -6,7 +6,7 @@
 # there — source of truth is build-pipeline tools/harness/ci/build/addon-base.yml.
 #
 # The add-on store's base image (task #53): apexinfosysindia/addons root
-# build.yaml pins ghcr.io/apexinfosysindia/addon-base:15.0.4 — this workflow
+# build.yaml pins ghcr.io/apexinfosysindia/addon-base:19.0.0 — this workflow
 # publishes that tag. amd64 + aarch64 (self-hosted apexos-builder, arch-routed by label)
 # only, matching the docker-base fleet (no armhf/armv7/i386 runners; the
 # store keeps all five build_from keys for shape, but only these two arches
@@ -26,7 +26,7 @@
 # Per-arch tags <ver>-{amd64,aarch64} are pushed by the build legs; the
 # merge job stitches them into the <ver> + latest multi-arch manifests.
 # <ver> = .apexos/provenance.yaml upstream.ref with the leading v dropped
-# (v15.0.4 -> 15.0.4, the image-tag spelling the store pins).
+# (v19.0.0 -> 19.0.0, the image-tag spelling the store pins).
 # =============================================================================
 name: apexos-build
 
