@@ -1,4 +1,4 @@
-ARG BUILD_FROM=alpine:3.22.2
+ARG BUILD_FROM=alpine:3.24.1
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
@@ -26,9 +26,9 @@ SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 
 # Install base system
 ARG BUILD_ARCH=amd64
-ARG BASHIO_VERSION="v0.17.5"
-ARG S6_OVERLAY_VERSION="3.2.1.0"
-ARG TEMPIO_VERSION="2024.11.2"
+ARG BASHIO_VERSION="v0.19.0"
+ARG S6_OVERLAY_VERSION="3.2.3.2"
+ARG TEMPIO_VERSION="2026.07.0"
 RUN \
     set -o pipefail \
     \
