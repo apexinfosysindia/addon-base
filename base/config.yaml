@@ -2,7 +2,7 @@
 name: Base Image
 version: dev
 slug: base
-description: Docker base images used by ApexOS Community Add-ons.
+description: Docker base images used by ApexOS Add-ons.
 url: https://github.com/apexinfosysindia/addon-base
 arch:
   - aarch64

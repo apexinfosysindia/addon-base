@@ -1,11 +1,18 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["helpers:pinGitHubActionDigests"],
   "schedule": ["before 2am"],
   "rebaseWhen": "behind-base-branch",
   "dependencyDashboard": true,
   "labels": ["dependencies", "no-stale"],
   "commitMessagePrefix": "⬆️",
   "commitMessageTopic": "{{depName}}",
+  "customDatasources": {
+    "alpine": {
+      "defaultRegistryUrlTemplate": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/",
+      "format": "html"
+    }
+  },
   "customManagers": [
     {
       "customType": "regex",
@@ -56,8 +63,9 @@
         "\\s\\s(?<package>[a-z0-9-_]+)=(?<currentValue>[a-z0-9-_.]+)\\s+"
       ],
       "versioningTemplate": "loose",
-      "datasourceTemplate": "repology",
-      "depNameTemplate": "alpine_3_22/{{package}}"
+      "datasourceTemplate": "custom.alpine",
+      "depNameTemplate": "alpine_3_24/{{package}}",
+      "extractVersionTemplate": "^{{{package}}}-(?<version>\\d.*)\\.apk$"
     }
   ],
   "packageRules": [
@@ -68,12 +76,12 @@
       "automerge": true
     },
     {
-      "matchDatasources": ["repology"],
+      "matchDatasources": ["custom.alpine"],
       "automerge": true
     },
     {
       "groupName": "OpenSSL",
-      "matchDatasources": ["repology"],
+      "matchDatasources": ["custom.alpine"],
       "automerge": true,
       "matchPackageNames": ["/^alpine_.*/(libssl|libcrypto).*$/"]
     },

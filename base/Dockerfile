@@ -1,4 +1,4 @@
-ARG BUILD_FROM=alpine:3.22.2
+ARG BUILD_FROM=alpine:3.24.1
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
@@ -26,27 +26,27 @@ SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 
 # Install base system
 ARG BUILD_ARCH=amd64
-ARG BASHIO_VERSION="v0.17.5"
-ARG S6_OVERLAY_VERSION="3.2.1.0"
-ARG TEMPIO_VERSION="2024.11.2"
+ARG BASHIO_VERSION="v0.19.0"
+ARG S6_OVERLAY_VERSION="3.2.3.2"
+ARG TEMPIO_VERSION="2026.07.0"
 RUN \
     set -o pipefail \
     \
     && apk add --no-cache --virtual .build-dependencies \
-        tar=1.35-r3 \
-        xz=5.8.1-r0 \
+        tar=1.35-r5 \
+        xz=5.8.4-r0 \
     \
     && apk add --no-cache \
-        libcrypto3=3.5.4-r0 \
-        libssl3=3.5.4-r0 \
-        musl-utils=1.2.5-r10 \
-        musl=1.2.5-r10 \
+        libcrypto3=3.5.8-r0 \
+        libssl3=3.5.8-r0 \
+        musl-utils=1.2.6-r2 \
+        musl=1.2.6-r2 \
     \
     && apk add --no-cache \
-        bash=5.2.37-r0 \
-        curl=8.14.1-r2 \
-        jq=1.8.1-r0 \
-        tzdata=2025b-r0 \
+        bash=5.3.9-r1 \
+        curl=8.22.0-r0 \
+        jq=1.8.2-r0 \
+        tzdata=2026c-r0 \
     \
     && S6_ARCH="${BUILD_ARCH}" \
     && if [ "${BUILD_ARCH}" = "amd64" ]; then S6_ARCH="x86_64"; fi \
@@ -98,21 +98,21 @@ ARG BUILD_REPOSITORY
 
 # Labels
 LABEL \
-    io.apexos.name="Addon base for ${BUILD_ARCH}" \
-    io.apexos.description="ApexOS Community Add-on: ${BUILD_ARCH} base image" \
+    io.apexos.name="App base for ${BUILD_ARCH}" \
+    io.apexos.description="ApexOS Add-on: ${BUILD_ARCH} base image" \
     io.apexos.arch="${BUILD_ARCH}" \
     io.apexos.type="base" \
     io.apexos.version=${BUILD_VERSION} \
     io.apexos.base.version=${BUILD_VERSION} \
     io.apexos.base.name="alpine" \
-    io.apexos.base.image="hassioaddons/base" \
-    maintainer="Franck Nijhof <frenck@addons.community>" \
-    org.opencontainers.image.title="Addon base for ${BUILD_ARCH}" \
-    org.opencontainers.image.description="ApexOS Community Add-on: ${BUILD_ARCH} Base image" \
-    org.opencontainers.image.vendor="ApexOS Community Add-ons" \
-    org.opencontainers.image.authors="Franck Nijhof <frenck@addons.community>" \
+    io.apexos.base.image="apexinfosysindia/addon-base" \
+    maintainer="ApexInfosys India" \
+    org.opencontainers.image.title="App base for ${BUILD_ARCH}" \
+    org.opencontainers.image.description="ApexOS Add-on: ${BUILD_ARCH} Base image" \
+    org.opencontainers.image.vendor="ApexOS Add-ons" \
+    org.opencontainers.image.authors="ApexInfosys India" \
     org.opencontainers.image.licenses="MIT" \
-    org.opencontainers.image.url="https://addons.community" \
+    org.opencontainers.image.url="https://frenck.dev/apexos-apps" \
     org.opencontainers.image.source="https://github.com/${BUILD_REPOSITORY}" \
     org.opencontainers.image.documentation="https://github.com/${BUILD_REPOSITORY}/blob/main/README.md" \
     org.opencontainers.image.created=${BUILD_DATE} \
