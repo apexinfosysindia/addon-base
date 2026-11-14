@@ -65,15 +65,16 @@ jobs:
       fail-fast: false
       matrix:
         arch:
-          # build_from spellings = base/build.yaml (upstream alpine 3.19.0
-          # arch images; armhf/armv7/i386 skipped — no runners, and the
+          # build_from spellings = base/build.yaml (upstream alpine 3.24.4 since v21.0.11 —
+          # KEEP IN STEP with base/build.yaml on every import: this build-arg overrides
+          # the Dockerfile default. armhf/armv7/i386 skipped — no runners, and the
           # fleet ships amd64+aarch64 only, docker-base precedent)
           - name: amd64
             runner: ${{ fromJSON(vars.APEXOS_RUNSON_AMD64 || '["self-hosted","apexos-builder","linux","X64"]') }}
-            build_from: amd64/alpine:3.19.0
+            build_from: amd64/alpine:3.24.4
           - name: aarch64
             runner: ${{ fromJSON(vars.APEXOS_RUNSON_AARCH64 || '["self-hosted","apexos-builder","ARM64"]') }}
-            build_from: arm64v8/alpine:3.19.0
+            build_from: arm64v8/alpine:3.24.4
     env:
       ARCH: ${{ matrix.arch.name }}
     steps:

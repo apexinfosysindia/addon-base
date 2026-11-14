@@ -11,15 +11,15 @@ schema_version: 1
 repo: addon-base
 upstream:
   url: https://github.com/hassio-addons/addon-base
-  ref: v21.0.5
-  sha: 97198afb7ad4b79b8f0827411733e2c0e60ec766
+  ref: v21.0.11
+  sha: a7a1cfdd85e9466aefd21cd4fb7f6cc7679f7f1f
 apexos:
   version: 0.1.17-dev
   channel: dev
-packaged: '2026-09-16'
+packaged: '2026-11-15'
 build_pipeline:
   org: apexinfosysindia
-  commit: c9eac64d62dd8250f7e14b31693bf7adbd66bba5
+  commit: 3e3162e4c5b62b9a70c8e978ced37cbf0add09f4
 engine: python
 src_subdir: .
 patches:
