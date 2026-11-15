@@ -1,8 +1,8 @@
 #!/command/with-contenv bashio
 # shellcheck shell=bash
 # ==============================================================================
-# ApexOS Add-on: Base Images
-# Displays a simple add-on banner on startup
+# ApexOS App: Base Images
+# Displays a simple app banner on startup
 # ==============================================================================
 if bashio::supervisor.ping; then
     bashio::log.blue \

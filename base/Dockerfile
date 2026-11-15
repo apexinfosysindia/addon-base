@@ -98,8 +98,8 @@ ARG BUILD_REPOSITORY
 
 # Labels
 LABEL \
-    io.apexos.name="Addon base for ${BUILD_ARCH}" \
-    io.apexos.description="ApexOS Add-on: ${BUILD_ARCH} base image" \
+    io.apexos.name="App base for ${BUILD_ARCH}" \
+    io.apexos.description="ApexOS App: ${BUILD_ARCH} base image" \
     io.apexos.arch="${BUILD_ARCH}" \
     io.apexos.type="base" \
     io.apexos.version=${BUILD_VERSION} \
@@ -107,8 +107,8 @@ LABEL \
     io.apexos.base.name="alpine" \
     io.apexos.base.image="apexinfosysindia/addon-base" \
     maintainer="ApexInfosys India" \
-    org.opencontainers.image.title="Addon base for ${BUILD_ARCH}" \
-    org.opencontainers.image.description="ApexOS Add-on: ${BUILD_ARCH} base image" \
+    org.opencontainers.image.title="App base for ${BUILD_ARCH}" \
+    org.opencontainers.image.description="ApexOS App: ${BUILD_ARCH} Base image" \
     org.opencontainers.image.vendor="ApexOS" \
     org.opencontainers.image.authors="ApexInfosys India" \
     org.opencontainers.image.licenses="MIT" \

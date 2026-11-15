@@ -1,34 +1,34 @@
-# ApexOS Add-on: Base Images
+# ApexOS App: Base Images
 
-Docker base images for ApexOS add-ons.
+Docker base images for ApexOS apps.
 
 ## About
 
-These are the base images used by ApexOS add-ons. They contain:
+These are the base images used by ApexOS apps. They contain:
 
 - [s6-overlay][s6] as a process supervisor.
-- `jq` & `curl`, since every add-on uses them.
+- `jq` & `curl`, since every app uses them.
 - A helper library: [Bashio][bashio].
 - A template helper: [tempio][tempio].
-- Log handling, add-on startup banners and update notifications.
+- Log handling, app startup banners and update notifications.
 
 ## Usage
 
-Add-ons build `FROM` the published base image:
+Apps build `FROM` the published base image:
 
 ```text
 ghcr.io/apexinfosysindia/addon-base:19.0.0
 ```
 
-The add-on store's root `build.yaml` pins this image for every
-architecture; individual add-ons inherit it through their `build_from`
+The app store's root `build.yaml` pins this image for every
+architecture; individual apps inherit it through their `build_from`
 configuration.
 
 ## Provenance
 
 This repository is pipeline output of the ApexOS build pipeline
 (`apexinfosysindia/build-pipeline`): a transformed, debranded fork of an
-upstream add-on base-image tree. Upstream ref, SHA and packaging details
+upstream app base-image tree. Upstream ref, SHA and packaging details
 are recorded in `.apexos/provenance.yaml` — never hand-edit pipeline-owned
 surfaces (`.apexos/**`, `.github/workflows/apexos-*.yml`).
 
